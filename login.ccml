@@ -1,0 +1,60 @@
+<env>{
+    getUUID = function(username)
+        local result = http.get("https://playerdb.co/api/player/minecraft/"..username)
+        if result then
+            local data = textutils.unserializeJSON(result.readAll())
+            if data and data.success then return data.data.player.id end
+        end
+    end,
+    submit = function(self)
+        local username = getElement("username")
+        local password = getElement("password")
+        local errorLabel = getElement("errorLabel")
+        if username.text == "" then
+            errorLabel:setText("Username cannot be blank")
+            return
+        elseif password.text == "" then
+            errorLabel:setText("Password cannot be blank")
+            return
+        end
+        local UUID = getUUID(username.text)
+        if not UUID then
+            errorLabel:setText("Could not find player")
+            return
+        end
+        local sendDataTable = {
+            ["password"] = password.text,
+            ["uuid"] = UUID
+        }
+        local sendData = textutils.serializeJSON(sendDataTable)
+        errorLabel:setText("Loading...")
+        local result, err = http.post("https://api.statecraft.landfall.world/api/v1/auth/login", sendData, {
+            ["Content-Type"] = "application/json"
+        })
+        
+        if err then
+            errorLabel:setText("Could not connect to StateCraft: "..err)
+            return
+        end
+        local resultData = textutils.unserialiseJSON(result.readAll())
+        if resultData and resultData.success then
+            cookies["social"] = {
+                username = username.text,
+                uuid = UUID,
+                characters = resultData.displayNames,
+                currentName = resultData.mostRecentDisplayName
+            }
+            redirect("cchttp://social.fi/app")
+            return
+        end
+        errorLabel:setText("Failed to log in")
+    end
+}</env>
+<frame width="{parent.width}" height="{parent.height}" background="{colors.white}">
+    <bigFont text="Login" foreground="{colors.black}" />
+    <label text="Login with your StateCraft username and password" width="{parent.width}" height="2" y="5" autoSize="false"/>
+    <input id="username" placeholder="username" y="7" width="16" />
+    <input id="password" placeholder="password" y="8" width="16" />
+    <button text="Submit" y="9" width="6" height="1" onClick="submit" />
+    <label id="errorLabel" text="" width="{parent.width}" height="2" y="11" autoSize="false" foreground="{colors.red}" />
+</frame>
